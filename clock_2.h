@@ -10,6 +10,7 @@
 #define setFunctions    12
 #define setUp           15
 #define setDown         16
+#define goBack          17
 
 #define DS1307_add    0x68
 #define LCM_contrast    11
@@ -34,5 +35,10 @@ String monthData[12] = {"Jan.", "Feb.", "Mar.",
                         "Oct.", "Nov.", "Dec."};
 String dayData[7] = {"Mon.", "Tues.", "Wed.", "Thur.",
                      "Fri", "Sat.", "Sun."};
+
+String MenuText[4] = {"Setting Time",
+                      "Setting Date",
+                      "Setting LCM ",
+                      "EXIT        "};
 
 #endif

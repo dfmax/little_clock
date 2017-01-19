@@ -14,9 +14,9 @@ void setup()
   Wire.begin();
   for (int a = 0; a < 6; a++)
     Data[a] = EEPROM.read(0x20 + a);
-    
+
   setDS1307(Data[0], Data[1], Data[2], Data[3], Data[4], Data[5], 0);
-//setDS1307(23, 1, 14, 6, 12, 24, 0); //then system need to initial the clock time when EEPROM data are float.
+  //setDS1307(23, 1, 14, 6, 12, 24, 0); //then system need to initial the clock time when EEPROM data are float.
 
   analogWrite(LCM_contrast, 50);
   analogWrite(LCM_bLight, 10);
@@ -28,18 +28,24 @@ void setup()
 }
 
 long pTime[10] = {0};
+boolean settingMode = false;
 
 void loop()
 {
   long tTime = millis();
+  if (settingMode == false)
+    settingMode = getIOState(setFunctions);
+    
+  if (settingMode == true)
+    settingMode = menuFunctions();
 
-  if (tTime - refreshTemp > pTime[0])
+  if ((tTime - refreshTemp > pTime[0]) && settingMode != true)
   {
     tempRefresh();
     pTime[0] = tTime;
   }
 
-  if (tTime - refreshTime > pTime[1])
+  if ((tTime - refreshTime > pTime[1]) && settingMode != true)
   {
     timeRefresh();
     pTime[1] = tTime;
@@ -58,18 +64,35 @@ byte GetRTCTime(byte TimeReg)
   return bcdTodec(Data);
 }
 
-void createLCMChar()
+void initLCM()
 {
-  uint8_t temp[8]  = {0x04, 0x0A, 0x0A, 0x0E, 0x0E, 0x1F, 0x1F, 0x0E};
-  lcd.createChar(0, temp);
+  lcd.clear();
   lcd.setCursor(0, 1);
   lcd.print("Err");
-
   lcd.setCursor(10, 1);
   lcd.write(byte(0));
   lcd.print(":Wait");
 }
 
+void createLCMChar()
+{
+  uint8_t temp[8]  = {0x04, 0x0A, 0x0A, 0x0E, 0x0E, 0x1F, 0x1F, 0x0E};
+  lcd.createChar(0, temp);
+  initLCM();
+}
+
+boolean getIOState(byte X)
+{
+  if (digitalRead(X) == LOW)
+  {
+    do {
+      delay(10);
+    } while (digitalRead(X) == LOW);
+    return true;
+  }
+  else
+    return false;
+}
 
 void setDS1307(byte Y, byte M, byte D, byte W, byte h, byte m, byte s)
 {
@@ -93,14 +116,33 @@ void tempRefresh()
   Temp /= 8;
   int Data = (125 * Temp) >> 8;
   lcd.setCursor(12, 1);
-  if(Data <= 99 && Data > 0)
+  if (Data <= 99 && Data > 0)
   {
-  lcd.print(Data);
-  lcd.write(0xDF);
-  lcd.print("C");
+    lcd.print(Data);
+    lcd.write(0xDF);
+    lcd.print("C");
   }
   else
     lcd.print("Err ");
+}
+
+boolean menuFunctions()
+{
+  boolean state = true;
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.write(0x3E);
+  for (int a = 0; a < 2; a++)
+  {
+     lcd.setCursor(1, a);
+     lcd.print(MenuText[a]);
+  }
+  do
+  {
+     getIOState(goBack) == true?state = false:state= true;
+  }while(state == true);
+  initLCM();
+  return false;
 }
 
 void timeRefresh()
@@ -151,6 +193,7 @@ void initIO()
   pinMode(LCM_contrast, OUTPUT);
   pinMode(LCM_RW, OUTPUT);
   pinMode(LCM_bLight, OUTPUT);
+  pinMode(goBack,       INPUT_PULLUP);
   pinMode(setFunctions, INPUT_PULLUP);
   pinMode(setUp,        INPUT_PULLUP);
   pinMode(setDown,      INPUT_PULLUP);
