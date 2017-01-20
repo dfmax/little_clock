@@ -29,6 +29,8 @@
 #define DC1307_Mon    0x05
 #define DC1307_Year   0x06
 
+#define menuItem         4
+
 String monthData[12] = {"Jan.", "Feb.", "Mar.",
                         "Apr.", "May", "Jun.",
                         "Jul.", "Aug.", "Sep.",

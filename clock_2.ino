@@ -35,7 +35,7 @@ void loop()
   long tTime = millis();
   if (settingMode == false)
     settingMode = getIOState(setFunctions);
-    
+
   if (settingMode == true)
     settingMode = menuFunctions();
 
@@ -64,21 +64,34 @@ byte GetRTCTime(byte TimeReg)
   return bcdTodec(Data);
 }
 
-void initLCM()
+void initLCM(short Mode)
 {
   lcd.clear();
-  lcd.setCursor(0, 1);
-  lcd.print("Err");
-  lcd.setCursor(10, 1);
-  lcd.write(byte(0));
-  lcd.print(":Wait");
+  switch (Mode)
+  {
+    case 0:
+      lcd.setCursor(0, 1);
+      lcd.print("Err");
+      lcd.setCursor(10, 1);
+      lcd.write(byte(0));
+      lcd.print(":Wait");
+      break;
+    case 1:
+      for (int a = 0; a < 2; a++)
+      {
+        lcd.setCursor(1, a);
+        lcd.print(MenuText[a]);
+      }
+      break;
+  }
+
 }
 
 void createLCMChar()
 {
   uint8_t temp[8]  = {0x04, 0x0A, 0x0A, 0x0E, 0x0E, 0x1F, 0x1F, 0x0E};
   lcd.createChar(0, temp);
-  initLCM();
+  initLCM(0);
 }
 
 boolean getIOState(byte X)
@@ -128,20 +141,38 @@ void tempRefresh()
 
 boolean menuFunctions()
 {
-  boolean state = true;
-  lcd.clear();
-  lcd.setCursor(0,0);
+  boolean state = true, checkUp = false, checkDown = false;
+  short index = 0, preIndex = 0;
+  initLCM(1);
+  lcd.setCursor(0, 0);
   lcd.write(0x3E);
-  for (int a = 0; a < 2; a++)
-  {
-     lcd.setCursor(1, a);
-     lcd.print(MenuText[a]);
-  }
   do
   {
-     getIOState(goBack) == true?state = false:state= true;
-  }while(state == true);
-  initLCM();
+    checkUp = getIOState(setUp);
+    checkDown = getIOState(setDown);
+    if (checkUp == true)
+    {
+      if (index > 0)
+        index--;
+      checkUp = false;
+    }
+    if (checkDown == true)
+    {
+      if (index < menuItem)
+        index++;
+      checkDown = false;
+    }
+    if (preIndex != index)
+    {
+      initLCM(1);
+      lcd.setCursor(0, index);
+      lcd.write(0x3E);
+      
+      preIndex = index;
+    }
+    getIOState(goBack) == true ? state = false : state = true;
+  } while (state == true);
+  initLCM(1);
   return false;
 }
 
@@ -153,7 +184,7 @@ void timeRefresh()
   byte Day = bcdTodec(GetRTCTime(DC1307_Day));
 
   lcd.setCursor(11, 0);
-  lcd.print(dayData[Day]);
+  lcd.print(dayData[Day - 1]);
   lcd.print(" ");
 
   lcd.setCursor(0, 0);
