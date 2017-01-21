@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
-#include "clock_2.h"
+#include "clock.h"
 
 LiquidCrystal lcd(LCM_Rs, LCM_En, 7, 6, 5, 4);
 
@@ -16,6 +16,7 @@ void setup()
     Data[a] = EEPROM.read(0x20 + a);
 
   setDS1307(Data[0], Data[1], Data[2], Data[3], Data[4], Data[5], 0);
+  //setDS1307(Year, Month, Date, week, hour, min, sec);
   //setDS1307(23, 1, 14, 6, 12, 24, 0); //then system need to initial the clock time when EEPROM data are float.
 
   analogWrite(LCM_contrast, 50);
@@ -77,11 +78,8 @@ void initLCM(short Mode)
       lcd.print(":Wait");
       break;
     case 1:
-      for (int a = 0; a < 2; a++)
-      {
-        lcd.setCursor(1, a);
-        lcd.print(MenuText[a]);
-      }
+        lcd.setCursor(1, 0);
+        lcd.print(MenuText[0]);
       break;
   }
 
@@ -141,7 +139,7 @@ void tempRefresh()
 
 boolean menuFunctions()
 {
-  boolean state = true, checkUp = false, checkDown = false;
+  boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
   short index = 0, preIndex = 0;
   initLCM(1);
   lcd.setCursor(0, 0);
@@ -150,6 +148,9 @@ boolean menuFunctions()
   {
     checkUp = getIOState(setUp);
     checkDown = getIOState(setDown);
+    checkSetting = getIOState(setFunctions);
+    if (checkSetting == false)
+      getIOState(goBack) == true ? state = false : state = true;
     if (checkUp == true)
     {
       if (index > 0)
@@ -158,21 +159,32 @@ boolean menuFunctions()
     }
     if (checkDown == true)
     {
-      if (index < menuItem)
+      if (index < menuItem - 1)
         index++;
       checkDown = false;
     }
+    if (checkSetting == true)
+    {
+      switch (index)
+      {
+        case 3:
+          state = false;
+          break;
+      }
+      checkSetting = false;
+    }
     if (preIndex != index)
     {
-      initLCM(1);
-      lcd.setCursor(0, index);
+      //initLCM(1);
+      lcd.clear();
+      lcd.setCursor(0, 0);
       lcd.write(0x3E);
-      
+      lcd.print(MenuText[index]);
       preIndex = index;
     }
-    getIOState(goBack) == true ? state = false : state = true;
+    Serial.println(index);
   } while (state == true);
-  initLCM(1);
+  initLCM(0);
   return false;
 }
 
@@ -181,7 +193,7 @@ void timeRefresh()
   byte Year = bcdTodec(GetRTCTime(DC1307_Year));
   byte Mon = bcdTodec(GetRTCTime(DC1307_Mon));
   byte Date = bcdTodec(GetRTCTime(DC1307_Date));
-  byte Day = bcdTodec(GetRTCTime(DC1307_Day));
+  byte Day = bcdTodec(GetRTCTime(DC1307_Day) & 0x07);
 
   lcd.setCursor(11, 0);
   lcd.print(dayData[Day - 1]);
@@ -204,12 +216,15 @@ void timeRefresh()
   else
     lcd.print(" ");
   showTime(Min);
-  EEPROM.write(0x20, Year);
-  EEPROM.write(0x21, Mon);
-  EEPROM.write(0x22, Date);
-  EEPROM.write(0x23, Day);
-  EEPROM.write(0x24, Hour);
-  EEPROM.write(0x25, Min);
+  if (EEPROM.read(0x22) != Date)
+  {
+    EEPROM.write(0x20, Year);
+    EEPROM.write(0x21, Mon);
+    EEPROM.write(0x22, Date);
+    EEPROM.write(0x23, Day);
+    EEPROM.write(0x24, Hour);
+    EEPROM.write(0x25, Min);
+  }
 }
 
 void showTime(byte X)
