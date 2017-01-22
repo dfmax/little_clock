@@ -30,6 +30,7 @@ void setup()
 
 long pTime[10] = {0};
 boolean settingMode = false;
+byte sH = 0, sM = 0;
 
 void loop()
 {
@@ -38,7 +39,9 @@ void loop()
     settingMode = getIOState(setFunctions);
 
   if (settingMode == true)
+  {
     settingMode = menuFunctions();
+  }
 
   if ((tTime - refreshTemp > pTime[0]) && settingMode != true)
   {
@@ -78,8 +81,8 @@ void initLCM(short Mode)
       lcd.print(":Wait");
       break;
     case 1:
-        lcd.setCursor(1, 0);
-        lcd.print(MenuText[0]);
+      lcd.setCursor(1, 0);
+      lcd.print(MenuText[0]);
       break;
   }
 
@@ -140,7 +143,7 @@ void tempRefresh()
 boolean menuFunctions()
 {
   boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
-  short index = 0, preIndex = 0;
+  short index = 0, preIndex = 4;
   initLCM(1);
   lcd.setCursor(0, 0);
   lcd.write(0x3E);
@@ -175,11 +178,25 @@ boolean menuFunctions()
     }
     if (preIndex != index)
     {
-      //initLCM(1);
       lcd.clear();
+      switch (index)
+      {
+        case 0:
+          byte Hour = bcdTodec(GetRTCTime(DC1307_Hour));
+          byte Min = bcdTodec(GetRTCTime(DC1307_Min));
+          sH = Hour;
+          sM = Min;
+          break;
+      }
+      //initLCM(1);
+      
       lcd.setCursor(0, 0);
       lcd.write(0x3E);
       lcd.print(MenuText[index]);
+      lcd.setCursor(5, 1);
+      showTime(sH);
+      lcd.print(":");
+      showTime(sM);
       preIndex = index;
     }
     Serial.println(index);
@@ -225,6 +242,12 @@ void timeRefresh()
     EEPROM.write(0x24, Hour);
     EEPROM.write(0x25, Min);
   }
+}
+
+void settingTime()
+{
+  lcd.setCursor(1, 1);
+
 }
 
 void showTime(byte X)
