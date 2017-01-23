@@ -143,7 +143,7 @@ void tempRefresh()
 boolean menuFunctions()
 {
   boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
-  short index = 0, preIndex = 4;
+  short index = 0, preIndex = 4, count = 0;
   initLCM(1);
   lcd.setCursor(0, 0);
   lcd.write(0x3E);
@@ -157,19 +157,28 @@ boolean menuFunctions()
     if (checkUp == true)
     {
       if (index > 0)
+      {
         index--;
+        count = 0;
+      }
       checkUp = false;
     }
     if (checkDown == true)
     {
       if (index < menuItem - 1)
+      {
         index++;
+        count = 0;
+      }
       checkDown = false;
     }
     if (checkSetting == true)
     {
       switch (index)
       {
+        case 0:
+          settingTime();
+          break;
         case 3:
           state = false;
           break;
@@ -189,7 +198,6 @@ boolean menuFunctions()
           break;
       }
       //initLCM(1);
-      
       lcd.setCursor(0, 0);
       lcd.write(0x3E);
       lcd.print(MenuText[index]);
@@ -203,6 +211,99 @@ boolean menuFunctions()
   } while (state == true);
   initLCM(0);
   return false;
+}
+
+void settingTime()
+{
+  boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
+  byte tempH = sH, tempM = sM, mode = 0;
+  lcd.setCursor(0, 0);
+  lcd.print(" ");
+  lcd.setCursor(0, 1);
+  lcd.write(0x3E);
+  do
+  {
+    checkUp = getIOState(setUp);
+    checkDown = getIOState(setDown);
+    checkSetting = getIOState(setFunctions);
+    getIOState(goBack) == true ? state = false : state = true;
+    
+    if (tempH != sH || tempM != sM)
+    {
+      lcd.setCursor(5, 1);
+      showTime(tempH);
+      lcd.print(":");
+      showTime(tempM);
+      sH = tempH;
+      sM = tempM;
+    }
+    if (checkUp == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          tempH++;
+          if (tempH >= 24)
+            tempH = 0;
+          break;
+        case 1:
+          tempM++;
+          if (tempM >= 60)
+            tempM = 0;
+      }
+      checkUp = false;
+    }
+    if (checkDown == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          tempH--;
+          if (tempH < 0)
+            tempH = 23;
+          break;
+        case 1:
+          tempM--;
+          if (tempM < 0)
+            tempM = 59;
+      }
+      checkDown = false;
+    }
+    if (checkSetting == true)
+    {
+      if (mode == 0) 
+      {
+        lcd.setCursor(15, 1);
+        lcd.write(0x3C);
+        lcd.setCursor(0, 1);
+        lcd.print(" ");
+        mode = 1;
+      }
+      else
+      {
+        lcd.setCursor(0, 1);
+        lcd.write(0x3E);
+        lcd.setCursor(15, 1);
+        lcd.print(" ");
+        mode = 0;
+      }
+      checkSetting = false;
+    }
+  } while (state == true);
+  Wire.beginTransmission(DS1307_add);
+  Wire.write(DC1307_Min);
+  Wire.write(decToBcd(sM));
+  Wire.endTransmission();
+  Wire.beginTransmission(DS1307_add);
+  Wire.write(DC1307_Hour);
+  Wire.write(decToBcd(sH) & 0x1F);
+  Wire.endTransmission();
+  EEPROM.write(0x24, sH);
+  EEPROM.write(0x25, sM);
+  lcd.setCursor(0, 0);
+  lcd.write(0x3E);
+  lcd.setCursor(0, 1);
+  lcd.print(" ");
 }
 
 void timeRefresh()
@@ -242,12 +343,6 @@ void timeRefresh()
     EEPROM.write(0x24, Hour);
     EEPROM.write(0x25, Min);
   }
-}
-
-void settingTime()
-{
-  lcd.setCursor(1, 1);
-
 }
 
 void showTime(byte X)
