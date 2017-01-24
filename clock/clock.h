@@ -42,5 +42,6 @@ String MenuText[4] = {"Setting Time",
                       "Setting Date",
                       "Setting LCM ",
                       "EXIT        "};
+                      
 
 #endif
