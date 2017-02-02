@@ -209,7 +209,7 @@ boolean menuFunctions()
           sD = bcdTodec(GetRTCTime(DC1307_Date));
           sW = bcdTodec(GetRTCTime(DC1307_Day));
           lcd.setCursor(2, 1);
-          showTime(sY);
+          showTime(sY + 0x06);
           lcd.print("-");
           showTime(sN);
           lcd.print("-");
@@ -248,7 +248,7 @@ void settingDate()
     if (tempY != sY || tempN != sN || tempD != sD || tempW != sW)
     {
       lcd.setCursor(2, 1);
-      showTime(tempY);
+      showTime(tempY + 0x06);
       lcd.setCursor(5, 1);
       showTime(tempN);
       lcd.setCursor(8, 1);
@@ -348,7 +348,7 @@ void settingDate()
   Wire.endTransmission();
   Wire.beginTransmission(DS1307_add);
   Wire.write(DC1307_Mon);
-  Wire.write(decToBcd(sN + 0x06));
+  Wire.write(decToBcd(sN));
   Wire.endTransmission();
   Wire.beginTransmission(DS1307_add);
   Wire.write(DC1307_Date);
@@ -358,8 +358,8 @@ void settingDate()
   Wire.write(DC1307_Day);
   Wire.write(decToBcd(sW) & 0x07);
   Wire.endTransmission();
-  EEPROM.write(0x20, sY + 0x06);
-  EEPROM.write(0x21, sN + 0x06);
+  EEPROM.write(0x20, sY);
+  EEPROM.write(0x21, sN);
   EEPROM.write(0x22, sD);
   EEPROM.write(0x23, sW);
   lcd.setCursor(0, 0);
@@ -476,7 +476,7 @@ void timeRefresh()
   lcd.print(" ");
 
   lcd.setCursor(0, 0);
-  showTime(Year);
+  showTime(Year + 0x06);
   lcd.print(" ");
   lcd.print(monthData[Mon - 1]);
   //lcd.print(" ");
@@ -498,8 +498,6 @@ void timeRefresh()
     EEPROM.write(0x21, Mon);
     EEPROM.write(0x22, Date);
     EEPROM.write(0x23, Day);
-    //EEPROM.write(0x24, Hour);
-    //EEPROM.write(0x25, Min);
   }
 }
 
