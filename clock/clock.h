@@ -29,10 +29,18 @@
 #define DC1307_Mon    0x05
 #define DC1307_Year   0x06
 
+#define LCMBLMin         0
+#define LCMBLMax       255
+#define LCMInitialBL     LCMBLMin
+
+#define LCMCTMin       0
+#define LCMCTMax      60
+#define LCMInitialCT  10
+
 #define menuItem         4
 
 String monthData[12] = {"Jan.", "Feb.", "Mar.",
-                        "Apr.", "May", "Jun.",
+                        "Apr.", "May ", "Jun.",
                         "Jul.", "Aug.", "Sep.",
                         "Oct.", "Nov.", "Dec."};
 String dayData[7] = {"Mon.", "Tues.", "Wed.", "Thur.",
