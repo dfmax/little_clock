@@ -12,6 +12,13 @@ void setup()
 
   Serial.begin(115200);
   Wire.begin();
+
+  if (EEPROM.read(CTROMAddr) == 0x00)
+  {
+    EEPROM.write(CTROMAddr, LCMInitialCT);
+    EEPROM.write(BLROMAddr, LCMInitialBL);
+  }
+
   for (int a = 0; a < 4; a++)
     Data[a] = EEPROM.read(0x20 + a);
 
@@ -19,8 +26,11 @@ void setup()
   //setDS1307(Year, Month, Date, week, hour, min, sec);
   //setDS1307(23, 1, 14, 6, 12, 24, 0); //then system need to initial the clock time when EEPROM data are float.
 
-  analogWrite(LCM_contrast, 50);
-  analogWrite(LCM_bLight, 10);
+  sCT = EEPROM.read(CTROMAddr);
+  sBL = EEPROM.read(BLROMAddr);
+
+  analogWrite(LCM_contrast, sCT);
+  analogWrite(LCM_bLight, sBL);
   digitalWrite(LCM_RW, LOW);
   delay(100);
 
@@ -30,7 +40,7 @@ void setup()
 
 long pTime[10] = {0};
 boolean settingMode = false;
-byte sH = 0, sM = 0, sY = 0, sN = 0, sD = 0, sW = 0;
+byte sH = 0x00, sM = 0x00, sY = 0x00, sN = 0x00, sD = 0x00, sW = 0x00;
 
 void loop()
 {
@@ -182,6 +192,9 @@ boolean menuFunctions()
         case 1:
           settingDate();
           break;
+        case 2:
+          settingLCM();
+          break;
         case 3:
           state = false;
           break;
@@ -194,7 +207,6 @@ boolean menuFunctions()
       switch (index)
       {
         case 0:
-          lcd.clear();
           sH = bcdTodec(GetRTCTime(DC1307_Hour));
           sM = bcdTodec(GetRTCTime(DC1307_Min));
           lcd.setCursor(5, 1);
@@ -203,7 +215,6 @@ boolean menuFunctions()
           showTime(sM);
           break;
         case 1:
-          lcd.clear();
           sY = bcdTodec(GetRTCTime(DC1307_Year));
           sN = bcdTodec(GetRTCTime(DC1307_Mon));
           sD = bcdTodec(GetRTCTime(DC1307_Date));
@@ -217,6 +228,16 @@ boolean menuFunctions()
           lcd.print("/");
           showTime(sW);
           break;
+        case 2:
+          sCT = EEPROM.read(CTROMAddr);
+          sBL = EEPROM.read(BLROMAddr);
+          lcd.setCursor(1, 1);
+          lcd.print("CT:");
+          lcd.print(sCT);
+          lcd.setCursor(8, 1);
+          lcd.print("BL:");
+          lcd.print(sBL);
+          break;
       }
       //initLCM(1);
       lcd.setCursor(0, 0);
@@ -227,6 +248,100 @@ boolean menuFunctions()
   } while (state == true);
   initLCM(0);
   return false;
+}
+
+void settingLCM()
+{
+  boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
+  byte tempCT = sCT, tempBL = sBL, mode = 0;
+  lcd.setCursor(0, 0);
+  lcd.print(" ");
+  lcd.setCursor(0, 1);
+  lcd.print(">");
+
+  do
+  {
+    checkUp = getIOState(setUp);
+    checkDown = getIOState(setDown);
+    checkSetting = getIOState(setFunctions);
+    getIOState(goBack) == true ? state = false : state = true;
+
+    if (tempCT != sCT || tempBL != sBL)
+    {
+      lcd.setCursor(4, 1);
+      showTime(tempCT);
+      lcd.print(" ");
+      lcd.setCursor(11, 1);
+      showTime(tempBL);
+      lcd.print(" ");
+      sCT = tempCT;
+      sBL = tempBL;
+      analogWrite(LCM_contrast, sCT);
+      analogWrite(LCM_bLight, sBL);
+    }
+    if (checkUp == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          tempCT++;
+          if (tempCT > LCMCTMax)
+            tempCT = LCMCTMax;
+          break;
+        case 1:
+          tempBL++;
+          if (tempBL > LCMBLMax)
+            tempBL = LCMBLMax;
+          break;
+      }
+      checkUp = false;
+    }
+    if (checkDown == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          tempCT--;
+          if (tempCT < LCMCTMin)
+            tempCT = LCMCTMin;
+          break;
+        case 1:
+          tempBL--;
+          if (tempBL < LCMBLMin)
+            tempBL = LCMBLMin;
+          break;
+      }
+      checkDown = false;
+    }
+    if (checkSetting == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          lcd.setCursor(0, 1);
+          lcd.print(" ");
+          lcd.setCursor(7, 1);
+          mode = 1;
+          break;
+        case 1:
+          lcd.setCursor(7, 1);
+          lcd.print(" ");
+          lcd.setCursor(0, 1);
+          mode = 0;
+          break;
+      }
+      lcd.print(">");
+      checkSetting = false;
+    }
+  } while (state == true);
+  EEPROM.write(CTROMAddr, sCT);
+  EEPROM.write(BLROMAddr, sBL);
+  analogWrite(LCM_contrast, sCT);
+  analogWrite(LCM_bLight, sBL);
+  lcd.setCursor(0, 0);
+  lcd.write(0x3E);
+  lcd.setCursor(0, 1);
+  lcd.print("  ");
 }
 
 void settingDate()
@@ -316,25 +431,22 @@ void settingDate()
     }
     if (checkSetting == true)
     {
+      lcd.setCursor(1, 1);
       switch (mode)
       {
         case 0:
-          lcd.setCursor(1, 1);
           lcd.print("M");
           mode = 1;
           break;
         case 1:
-          lcd.setCursor(1, 1);
           lcd.write("D");
           mode = 2;
           break;
         case 2:
           mode = 3;
-          lcd.setCursor(1, 1);
           lcd.write("W");
           break;
         case 3:
-          lcd.setCursor(1, 1);
           lcd.write("Y");
           mode = 0;
           break;

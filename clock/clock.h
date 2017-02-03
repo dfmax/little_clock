@@ -12,6 +12,9 @@
 #define setDown         16
 #define goBack          17
 
+#define CTROMAddr     0x05
+#define BLROMAddr     0x06
+
 #define DS1307_add    0x68
 #define LCM_contrast    11
 #define LCM_Rs           8
@@ -30,12 +33,12 @@
 #define DC1307_Year   0x06
 
 #define LCMBLMin         0
-#define LCMBLMax       255
-#define LCMInitialBL     LCMBLMin
+#define LCMBLMax       185
+#define LCMInitialBL    10
 
-#define LCMCTMin       0
-#define LCMCTMax      60
-#define LCMInitialCT  10
+#define LCMCTMin        10
+#define LCMCTMax        80
+#define LCMInitialCT    50
 
 #define menuItem         4
 
@@ -50,6 +53,7 @@ String MenuText[4] = {"Setting Time",
                       "Setting Date",
                       "Setting LCM ",
                       "EXIT        "};
-                      
 
+byte sCT = 0x00, sBL = 0x00;                      
+                      
 #endif
