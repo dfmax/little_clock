@@ -3,7 +3,7 @@
 #include <EEPROM.h>
 #include "clock.h"
 
-LiquidCrystal lcd(LCM_Rs, LCM_En, 7, 6, 5, 4);
+LiquidCrystal lcd(LCM_Rs, LCM_En, LCMbit4, LCMbit5, LCMbit6, LCMbit7);
 
 void setup()
 {
@@ -31,6 +31,7 @@ void setup()
 
   analogWrite(LCM_contrast, sCT);
   analogWrite(LCM_bLight, sBL);
+  digitalWrite(BUZZ, LOW);
   digitalWrite(LCM_RW, LOW);
   delay(100);
 
@@ -39,18 +40,34 @@ void setup()
 }
 
 long pTime[10] = {0};
-boolean settingMode = false;
+boolean settingMode = false, alarmFunc = false;
 byte sH = 0x00, sM = 0x00, sY = 0x00, sN = 0x00, sD = 0x00, sW = 0x00;
+int countAl = 0;
 
 void loop()
 {
   long tTime = millis();
+
   if (settingMode == false)
     settingMode = getIOState(setFunctions);
-
   if (settingMode == true)
-  {
     settingMode = menuFunctions();
+
+  if (alarmFunc == false)
+    alarmFunc = getIOState(goBack);
+  if (alarmFunc == true)
+  {
+    if (AlarmFlag == true)
+    {
+      AlarmFlag = false;
+      noTone(BUZZ);
+    }
+    else
+    {
+      AlarmFlag = true;
+      countAl = 0;
+    }
+    alarmFunc = false;
   }
 
   if ((tTime - refreshTemp > pTime[0]) && settingMode != true)
@@ -64,6 +81,26 @@ void loop()
     timeRefresh();
     pTime[1] = tTime;
   }
+
+  if (AlarmFlag == true)
+  {
+    if(Hour == sAlH && Min == sAlM)
+    {
+    countAl++;
+    if (countAl < alarmTime[0])
+      tone(BUZZ, 932);
+    else if (countAl < alarmTime[1])
+      noTone(BUZZ);
+    if (countAl >= alarmTime[1])
+      countAl = 0;
+    }
+    else
+    {
+      noTone(BUZZ);
+      countAl = 0;
+    }
+  }
+  analogWrite(LCM_bLight, sBL);
   delay(1);
 }
 
@@ -100,8 +137,8 @@ void initLCM(short Mode)
 
 void createLCMChar()
 {
-  uint8_t temp[8]  = {0x04, 0x0A, 0x0A, 0x0E, 0x0E, 0x1F, 0x1F, 0x0E};
   lcd.createChar(0, temp);
+  lcd.createChar(1, bell);
   initLCM(0);
 }
 
@@ -117,6 +154,7 @@ boolean getIOState(byte X)
   else
     return false;
 }
+
 
 void setDS1307(byte Y, byte M, byte D, byte W, byte h, byte m, byte s)
 {
@@ -134,11 +172,26 @@ void setDS1307(byte Y, byte M, byte D, byte W, byte h, byte m, byte s)
 
 void tempRefresh()
 {
-  int Temp = 0;
-  for (int a = 0; a < 8; a++)
-    Temp += analogRead(LM35_Pin);
-  Temp /= 8;
-  int Data = (125 * Temp) >> 8;
+  int TempMax = 0, TempMin = 255;
+  int TempArray[10] = {0};
+  
+  for (int a = 0; a < 10; a++)
+    TempArray[a] = analogRead(LM35_Pin);
+  TempMax = TempArray[0];
+  TempMin = TempArray[0];
+  for (int a = 1; a < 10; a++)
+  {
+    if(TempArray[a] > TempMax) TempMax = TempArray[a];
+    if(TempArray[a] < TempMin) TempMin = TempArray[a];
+  }
+  int TempAll = 0;
+  for (int a = 0; a < 10; a++)
+    TempAll += TempArray[a];
+  TempAll -= TempMax;
+  TempAll -= TempMin;
+  TempAll /= 8;
+  
+  int Data = (125 * TempAll) >> 8;
   lcd.setCursor(12, 1);
   if (Data <= 99 && Data > 0)
   {
@@ -153,7 +206,7 @@ void tempRefresh()
 boolean menuFunctions()
 {
   boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
-  short index = 0, preIndex = 4, count = 0;
+  short index = 0, preIndex = 4;
   initLCM(1);
   lcd.setCursor(0, 0);
   lcd.write(0x3E);
@@ -169,7 +222,6 @@ boolean menuFunctions()
       if (index > 0)
       {
         index--;
-        count = 0;
       }
       checkUp = false;
     }
@@ -178,7 +230,6 @@ boolean menuFunctions()
       if (index < menuItem - 1)
       {
         index++;
-        count = 0;
       }
       checkDown = false;
     }
@@ -187,15 +238,18 @@ boolean menuFunctions()
       switch (index)
       {
         case 0:
-          settingTime();
+          settingAlarm();
           break;
         case 1:
-          settingDate();
+          settingTime();
           break;
         case 2:
-          settingLCM();
+          settingDate();
           break;
         case 3:
+          settingLCM();
+          break;
+        case 4:
           state = false;
           break;
       }
@@ -207,14 +261,20 @@ boolean menuFunctions()
       switch (index)
       {
         case 0:
-          sH = bcdTodec(GetRTCTime(DC1307_Hour));
-          sM = bcdTodec(GetRTCTime(DC1307_Min));
+          lcd.setCursor(5, 1);
+          showTime(sAlH);
+          lcd.print(":");
+          showTime(sAlM);
+          break;
+        case 1:
+          sH = GetRTCTime(DC1307_Hour);
+          sM = GetRTCTime(DC1307_Min);
           lcd.setCursor(5, 1);
           showTime(sH);
           lcd.print(":");
           showTime(sM);
           break;
-        case 1:
+        case 2:
           sY = bcdTodec(GetRTCTime(DC1307_Year));
           sN = bcdTodec(GetRTCTime(DC1307_Mon));
           sD = bcdTodec(GetRTCTime(DC1307_Date));
@@ -228,7 +288,7 @@ boolean menuFunctions()
           lcd.print("/");
           showTime(sW);
           break;
-        case 2:
+        case 3:
           sCT = EEPROM.read(CTROMAddr);
           sBL = EEPROM.read(BLROMAddr);
           lcd.setCursor(1, 1);
@@ -248,6 +308,93 @@ boolean menuFunctions()
   } while (state == true);
   initLCM(0);
   return false;
+}
+
+void settingAlarm()
+{
+  boolean state = true, checkUp = false, checkDown = false, checkSetting = false;
+  byte tempH = sAlH, tempM = sAlM, mode = 0;
+  lcd.setCursor(0, 0);
+  lcd.print(" ");
+  lcd.setCursor(0, 1);
+  lcd.write(0x3E);
+  do
+  {
+    checkUp = getIOState(setUp);
+    checkDown = getIOState(setDown);
+    checkSetting = getIOState(setFunctions);
+    getIOState(goBack) == true ? state = false : state = true;
+
+    if (tempH != sAlH || tempM != sAlM)
+    {
+      lcd.setCursor(5, 1);
+      showTime(tempH);
+      lcd.print(":");
+      showTime(tempM);
+      sAlH = tempH;
+      sAlM = tempM;
+    }
+    if (checkUp == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          tempH++;
+          if (tempH >= 24)
+            tempH = 0;
+          break;
+        case 1:
+          tempM++;
+          if (tempM >= 60)
+            tempM = 0;
+          break;
+      }
+      checkUp = false;
+    }
+    if (checkDown == true)
+    {
+      switch (mode)
+      {
+        case 0:
+          tempH--;
+          if (tempH >= 24)
+            tempH = 23;
+          break;
+        case 1:
+          tempM--;
+          if (tempM < 0)
+            tempM = 59;
+          break;
+      }
+      checkDown = false;
+    }
+    if (checkSetting == true)
+    {
+      if (mode == 0)
+      {
+        lcd.setCursor(15, 1);
+        lcd.write(0x3C);
+        lcd.setCursor(0, 1);
+        lcd.print(" ");
+        mode = 1;
+      }
+      else
+      {
+        lcd.setCursor(0, 1);
+        lcd.write(0x3E);
+        lcd.setCursor(15, 1);
+        lcd.print(" ");
+        mode = 0;
+      }
+      checkSetting = false;
+    }
+  } while (state == true);
+  lcd.setCursor(0, 0);
+  lcd.write(0x3E);
+  lcd.setCursor(0, 1);
+  lcd.print(" ");
+  lcd.setCursor(15, 1);
+  lcd.print(" ");
 }
 
 void settingLCM()
@@ -408,22 +555,22 @@ void settingDate()
       {
         case 0:
           tempY--;
-          if (tempY < 0)
+          if (tempY > 99)
             tempY = 99;
           break;
         case 1:
           tempN--;
-          if (tempN < 1)
+          if (tempN > 12)
             tempN = 12;
           break;
         case 2:
           tempD--;
-          if (tempD < 1)
+          if (tempD > 31)
             tempD = 31;
           break;
         case 3:
           tempW--;
-          if (tempW < 1)
+          if (tempW > 1)
             tempW = 7;
           break;
       }
@@ -528,12 +675,12 @@ void settingTime()
       {
         case 0:
           tempH--;
-          if (tempH < 0)
+          if (tempH >= 24)
             tempH = 23;
           break;
         case 1:
           tempM--;
-          if (tempM < 0)
+          if (tempM >= 60)
             tempM = 59;
           break;
       }
@@ -566,7 +713,7 @@ void settingTime()
   Wire.endTransmission();
   Wire.beginTransmission(DS1307_add);
   Wire.write(DC1307_Hour);
-  Wire.write(decToBcd(sH) & 0x1F);
+  Wire.write(decToBcd(sH));
   Wire.endTransmission();
   lcd.setCursor(0, 0);
   lcd.write(0x3E);
@@ -583,6 +730,19 @@ void timeRefresh()
   byte Date = bcdTodec(GetRTCTime(DC1307_Date));
   byte Day = bcdTodec(GetRTCTime(DC1307_Day) & 0x07);
 
+  Hour = GetRTCTime(DC1307_Hour);
+  Min = GetRTCTime(DC1307_Min);
+
+  if (AlarmFlag == true)
+  {
+    lcd.setCursor(7, 1);
+    lcd.write(byte(1));
+  }
+  else
+  {
+    lcd.setCursor(7, 1);
+    lcd.print(" ");
+  }
   lcd.setCursor(11, 0);
   lcd.print(dayData[Day - 1]);
   lcd.print(" ");
@@ -595,8 +755,6 @@ void timeRefresh()
   showTime(Date);
   lcd.print(" ");
 
-  byte Hour = bcdTodec(GetRTCTime(DC1307_Hour));
-  byte Min = bcdTodec(GetRTCTime(DC1307_Min));
   lcd.setCursor(TimePosition, 1);
   showTime(Hour);
   if (bcdTodec(GetRTCTime(DC1307_Sec)) % 2 == 0)
@@ -625,6 +783,7 @@ void initIO()
   pinMode(LCM_contrast, OUTPUT);
   pinMode(LCM_RW, OUTPUT);
   pinMode(LCM_bLight, OUTPUT);
+  pinMode(BUZZ, OUTPUT);
   pinMode(goBack,       INPUT_PULLUP);
   pinMode(setFunctions, INPUT_PULLUP);
   pinMode(setUp,        INPUT_PULLUP);
@@ -634,13 +793,11 @@ void initIO()
 /*data tranfer functions*/
 byte decToBcd(byte X)
 {
-  uint16_t a = X;
-  byte b = (a * 103) >> 10;
-  return  X + b * 6;
+  return ( (X / 10 * 16) + (X % 10) );
 }
 
 byte bcdTodec(byte X)
 {
-  return (X - 6 * (X / 16));
+  return ((X / 16 * 10) + (X % 16));
 }
 

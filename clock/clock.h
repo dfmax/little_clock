@@ -12,6 +12,7 @@
 #define setDown         16
 #define goBack          17
 
+
 #define CTROMAddr     0x05
 #define BLROMAddr     0x06
 
@@ -22,7 +23,13 @@
 #define LCM_En          10
 #define LCM_bLight       3
 
+#define LCMbit7          7
+#define LCMbit6          6
+#define LCMbit5          5
+#define LCMbit4          4
+
 #define LM35_Pin        A0
+#define BUZZ             2
 
 #define DC1307_Sec    0x00
 #define DC1307_Min    0x01
@@ -49,11 +56,20 @@ String monthData[12] = {"Jan.", "Feb.", "Mar.",
 String dayData[7] = {"Mon.", "Tues.", "Wed.", "Thur.",
                      "Fri", "Sat.", "Sun."};
 
-String MenuText[4] = {"Setting Time",
-                      "Setting Date",
-                      "Setting LCM ",
-                      "EXIT        "};
+String MenuText[5] = {"Setting Alarm",
+                      "Setting Time ",
+                      "Setting Date ",
+                      "Setting LCM  ",
+                      "EXIT         "};
 
-byte sCT = 0x00, sBL = 0x00;                      
+uint8_t bell[8]  = {0x4,0xe,0xe,0xe,0x1f,0x0,0x4};
+uint8_t temp[8]  = {0x04, 0x0A, 0x0A, 0x0E, 0x0E, 0x1F, 0x1F, 0x0E};
+
+int alarmTime[2] = {600, 1000};
+
+byte  Hour = 0x00, Min = 0x00;
+byte sCT = 0x00, sBL = 0x00;              
+byte sAlH = 0x00, sAlM = 0x00;
+boolean AlarmFlag = false;
                       
 #endif
